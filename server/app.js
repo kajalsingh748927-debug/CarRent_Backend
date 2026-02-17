@@ -14,14 +14,10 @@ const app = express();
 
 await connectDB();
 
-const allowedOrigins = [
-  'https://car-rental-k18a.vercel.app', // Aapka Live Vercel URL
-  'http://localhost:5173'              // Aapka Local Development URL
-];
 
 app.use(
   cors({
-    origin: allowedOrigins,
+    origin: "https://car-rental-k18a.vercel.app",
     credentials: true,
   })
 );
