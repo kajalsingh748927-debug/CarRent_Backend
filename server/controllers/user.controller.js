@@ -4,6 +4,16 @@ import jwt from "jsonwebtoken";
 import imagekit from "../config/imagekit.js";
 import fs from "fs";
 
+const isProd = process.env.NODE_ENV === "production";
+
+const cookieOptions = {
+  httpOnly: true,
+  secure: isProd,
+  sameSite: isProd ? "none" : "lax",
+  maxAge: 7 * 24 * 60 * 60 * 1000,
+  path: "/"
+};
+
 // REGISTER
 export const registerUser = async (req, res) => {
   try {
@@ -32,12 +42,7 @@ export const registerUser = async (req, res) => {
       { expiresIn: "7d" }
     );
 
-    res.cookie("token", token, {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: false,
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
+    res.cookie("token", token, cookieOptions);
 
     res.json({ success: true });
 
@@ -67,12 +72,7 @@ export const loginUser = async (req, res) => {
       { expiresIn: "7d" }
     );
 
-    res.cookie("token", token, {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: false,
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
+    res.cookie("token", token, cookieOptions);
 
     res.json({ success: true });
 
@@ -91,12 +91,7 @@ export const getUserData = async (req, res) => {
 
 // LOGOUT
 export const logoutUser = async (req, res) => {
-  res.clearCookie("token", {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: false,
-    maxAge: 0,
-  });
+  res.clearCookie("token", cookieOptions);
   res.json({ success: true });
 };
 
@@ -106,24 +101,39 @@ export const uploadProfileImage = async (req, res) => {
     if (!req.file) {
       return res.status(400).json({ success: false, message: "No image file" });
     }
+
     const fileBuffer = fs.readFileSync(req.file.path);
+
     const uploadResponse = await imagekit.upload({
       file: fileBuffer,
       fileName: req.file.originalname,
       folder: "/profiles",
     });
+
     const imageUrl = imagekit.url({
       path: uploadResponse.filePath,
       transformation: [{ width: "200", height: "200", crop: "at_max" }],
     });
+
     await User.findByIdAndUpdate(req.user._id, { image: imageUrl });
+
     if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+
     const user = await User.findById(req.user._id).select("-password");
-    res.json({ success: true, user, message: "Profile image updated" });
+
+    res.json({
+      success: true,
+      user,
+      message: "Profile image updated",
+    });
+
   } catch (error) {
     if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
     console.error(error);
-    res.status(500).json({ success: false, message: error.message || "Upload failed" });
+    res.status(500).json({
+      success: false,
+      message: error.message || "Upload failed",
+    });
   }
 };
 
@@ -131,9 +141,19 @@ export const uploadProfileImage = async (req, res) => {
 export const deleteProfileImage = async (req, res) => {
   try {
     await User.findByIdAndUpdate(req.user._id, { image: "" });
+
     const user = await User.findById(req.user._id).select("-password");
-    res.json({ success: true, user, message: "Profile image removed" });
+
+    res.json({
+      success: true,
+      user,
+      message: "Profile image removed",
+    });
+
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message || "Failed to remove image" });
+    res.status(500).json({
+      success: false,
+      message: error.message || "Failed to remove image",
+    });
   }
 };
